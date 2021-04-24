@@ -1,1 +1,1 @@
-# exercism
+# Exercism solutions in golang
