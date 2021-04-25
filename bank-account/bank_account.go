@@ -1,65 +1,59 @@
+// The package account simulates a bank account supporting:
+// opening, closing, withdrawals, and deposits of money.
 package account
 
 import "sync"
 
 type Account struct {
-	open    bool
+	closed  bool
 	balance int64
-	mutex   sync.Mutex
+	sync.RWMutex
 }
 
+// Open opens a bank account with 'initialDeposit' in it.
 func Open(initialDeposit int64) *Account {
 	if initialDeposit < 0 {
 		return nil
 	}
 
-	account := Account{
-		open:    true,
-		balance: initialDeposit,
-	}
-
-	return &account
+	return &Account{balance: initialDeposit}
 }
 
+// Close closes the bank account and return the balance.
 func (a *Account) Close() (payout int64, ok bool) {
-	if a != nil {
-		a.mutex.Lock()
-		defer a.mutex.Unlock()
+	a.Lock()
+	defer a.Unlock()
 
-		if a.isOpen() {
-			a.open = false
-			return a.balance, true
-		}
-	}
-
-	return 0, false
-}
-
-func (a *Account) Balance() (balance int64, ok bool) {
-	if a.isOpen() {
-		return a.balance, true
-	} else {
+	if a.closed {
 		return 0, false
 	}
+
+	a.closed = true
+	return a.balance, true
 }
 
-func (a *Account) Deposit(amount int64) (newBalance int64, ok bool) {
-	if a != nil {
-		a.mutex.Lock()
-		defer a.mutex.Unlock()
+// Balance return the balance in the bank account.
+func (a *Account) Balance() (balance int64, ok bool) {
+	a.RLock()
+	defer a.RUnlock()
 
-		if a.isOpen() {
-			newBalance := a.balance + amount
-			if newBalance >= 0 {
-				a.balance = newBalance
-				return newBalance, true
-			}
-		}
+	if a.closed {
+		return 0, false
 	}
 
-	return 0, false
+	return a.balance, true
 }
 
-func (a *Account) isOpen() bool {
-	return a != nil && a.open
+// Deposit makes deposits and withdrawals to the bank account
+func (a *Account) Deposit(amount int64) (newBalance int64, ok bool) {
+	a.Lock()
+	defer a.Unlock()
+
+	newBalance = a.balance + amount
+	if a.closed || newBalance < 0 {
+		return 0, false
+	}
+
+	a.balance = newBalance
+	return newBalance, true
 }
